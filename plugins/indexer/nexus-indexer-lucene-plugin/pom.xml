@@ -99,6 +99,11 @@
 
   <build>
     <plugins>
+      <!-- This plugin tests Plexus support, so we do have Plexus components -->
+      <plugin>
+        <groupId>org.codehaus.plexus</groupId>
+        <artifactId>plexus-component-metadata</artifactId>
+      </plugin>
       <plugin>
         <groupId>org.sonatype.nexus</groupId>
         <artifactId>nexus-plugin-bundle-maven-plugin</artifactId>

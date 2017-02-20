@@ -533,6 +533,39 @@
           <required>false</required>
           <description>A HTML highlighted fragment of the matched hit.</description>
         </field>
+           <!-- added information -->
+         <field>
+          <name>description</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>false</required>
+          <description>The description of artifact.</description>
+        </field>
+        
+        <field>
+          <name>url</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>false</required>
+          <description>The download/more information url of artifact.</description>
+        </field>
+        
+        <field>
+          <name>license</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>false</required>
+          <description>The license of artifact.</description>
+        </field>
+        
+        <field>
+          <name>licenseUrl</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>false</required>
+          <description>The url of license.</description>
+        </field>
+        <!-- added information -->
         <field>
           <name>artifactHits</name>
           <version>1.0.0+</version>

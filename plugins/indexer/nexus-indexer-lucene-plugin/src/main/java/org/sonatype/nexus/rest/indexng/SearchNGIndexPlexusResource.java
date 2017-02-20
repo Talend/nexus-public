@@ -27,26 +27,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
-import org.sonatype.nexus.index.Searcher;
-import org.sonatype.nexus.proxy.NoSuchRepositoryException;
-import org.sonatype.nexus.proxy.maven.MavenRepository;
-import org.sonatype.nexus.proxy.repository.GroupRepository;
-import org.sonatype.nexus.proxy.repository.HostedRepository;
-import org.sonatype.nexus.proxy.repository.ProxyRepository;
-import org.sonatype.nexus.proxy.repository.Repository;
-import org.sonatype.nexus.proxy.repository.RepositoryKind;
-import org.sonatype.nexus.proxy.repository.ShadowRepository;
-import org.sonatype.nexus.rest.index.AbstractIndexerNexusPlexusResource;
-import org.sonatype.nexus.rest.model.NexusNGArtifact;
-import org.sonatype.nexus.rest.model.NexusNGArtifactHit;
-import org.sonatype.nexus.rest.model.NexusNGArtifactLink;
-import org.sonatype.nexus.rest.model.NexusNGRepositoryDetail;
-import org.sonatype.nexus.rest.model.SearchNGResponse;
-import org.sonatype.nexus.util.SystemPropertiesHelper;
-import org.sonatype.plexus.rest.resource.PathProtectionDescriptor;
-import org.sonatype.plexus.rest.resource.PlexusResourceException;
-
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.maven.index.ArtifactInfo;
 import org.apache.maven.index.IteratorSearchResponse;
@@ -62,6 +42,27 @@ import org.restlet.resource.ResourceException;
 import org.restlet.resource.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonatype.nexus.index.Searcher;
+import org.sonatype.nexus.proxy.NoSuchRepositoryException;
+import org.sonatype.nexus.proxy.maven.MavenRepository;
+import org.sonatype.nexus.proxy.repository.GroupRepository;
+import org.sonatype.nexus.proxy.repository.HostedRepository;
+import org.sonatype.nexus.proxy.repository.ProxyRepository;
+import org.sonatype.nexus.proxy.repository.Repository;
+import org.sonatype.nexus.proxy.repository.RepositoryKind;
+import org.sonatype.nexus.proxy.repository.ShadowRepository;
+import org.sonatype.nexus.rest.index.AbstractIndexerNexusPlexusResource;
+import org.sonatype.nexus.rest.indexng.talend.ModuleIndexCreator;
+import org.sonatype.nexus.rest.model.NexusNGArtifact;
+import org.sonatype.nexus.rest.model.NexusNGArtifactHit;
+import org.sonatype.nexus.rest.model.NexusNGArtifactLink;
+import org.sonatype.nexus.rest.model.NexusNGRepositoryDetail;
+import org.sonatype.nexus.rest.model.SearchNGResponse;
+import org.sonatype.nexus.util.SystemPropertiesHelper;
+import org.sonatype.plexus.rest.resource.PathProtectionDescriptor;
+import org.sonatype.plexus.rest.resource.PlexusResourceException;
+
+import com.google.common.annotations.VisibleForTesting;
 
 @Named(SearchNGIndexPlexusResource.ROLE_HINT)
 @Singleton
@@ -403,6 +404,17 @@ public class SearchNGIndexPlexusResource
         versionHit.setGroupId(ai.groupId);
         versionHit.setArtifactId(ai.artifactId);
         versionHit.setVersion(ai.version);
+        versionHit.setDescription(ai.description);
+		getSearchDiagnosticLogger()
+				.info("url"
+						+ ai.getAttributes().get(
+								ModuleIndexCreator.FLD_URL_ID.getKey()));
+		versionHit.setUrl(ai.getAttributes().get(
+				ModuleIndexCreator.FLD_URL_ID.getKey()));
+		versionHit.setLicense(ai.getAttributes().get(
+				ModuleIndexCreator.FLD_LICENSE_ID.getKey()));
+		versionHit.setLicenseUrl(ai.getAttributes().get(
+				ModuleIndexCreator.FLD_LICENSE_URL_ID.getKey()));
         versionHit.setHighlightedFragment(getMatchHighlightHtmlSnippet(ai));
 
         gaholder.putVersionHit(version, versionHit);

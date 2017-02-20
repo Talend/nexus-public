@@ -2001,8 +2001,8 @@ public class DefaultIndexerManager
     }
 
     if (aTerm != null) {
-      bq.add(constructQuery(MAVEN.ARTIFACT_ID, aTerm, searchType), BooleanClause.Occur.MUST);
-    }
+    	constructArtifactQuery(bq, aTerm, searchType);
+	}
 
     if (vTerm != null) {
       bq.add(constructQuery(MAVEN.VERSION, vTerm, searchType), BooleanClause.Occur.MUST);
@@ -2035,6 +2035,31 @@ public class DefaultIndexerManager
 
     return searchIterator(repositoryId, req);
   }
+  
+  private void constructArtifactQuery(BooleanQuery bq, String aTerm,
+			SearchType searchType) {
+		if (aTerm != null) {
+			String[] split = aTerm.split(",");
+			// remove duplicated
+			Set<String> artifactIds = new HashSet<String>();
+			for (int i = 0; i < split.length; i++) {
+				artifactIds.add(split[i]);
+			}
+			if (artifactIds.size() > 1) {
+				BooleanQuery aq = new BooleanQuery();
+				Iterator<String> iterator = artifactIds.iterator();
+				while (iterator.hasNext()) {
+					aq.add(constructQuery(MAVEN.ARTIFACT_ID, iterator.next(),
+							searchType), BooleanClause.Occur.SHOULD);
+
+				}
+				bq.add(aq, BooleanClause.Occur.MUST);
+			} else {
+				bq.add(constructQuery(MAVEN.ARTIFACT_ID, aTerm, searchType),
+						BooleanClause.Occur.MUST);
+			}
+		}
+	}
 
   public IteratorSearchResponse searchArtifactSha1ChecksumIterator(String sha1Checksum, String repositoryId,
                                                                    Integer from, Integer count, Integer hitLimit,
