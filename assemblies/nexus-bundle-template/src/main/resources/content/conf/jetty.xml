@@ -25,7 +25,7 @@
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
 
   <Set name="threadPool">
-    <New class="com.yammer.metrics.jetty.InstrumentedQueuedThreadPool"/>
+    <New class="org.sonatype.nexus.bootstrap.jetty.InstrumentedQueuedThreadPool"/>
   </Set>
 
   <Call name="addConnector">

@@ -12,10 +12,19 @@
  */
 package org.sonatype.nexus.security.ldap.realms;
 
+import java.util.Map;
+
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import org.apache.shiro.authc.AuthenticationException;
+import org.apache.shiro.authc.AuthenticationInfo;
+import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.authc.SimpleAccount;
+import org.apache.shiro.authz.AuthorizationInfo;
+import org.apache.shiro.subject.PrincipalCollection;
+import org.sonatype.security.cache.TalendRequestCache;
 import org.sonatype.security.ldap.LdapConstants;
 import org.sonatype.security.ldap.realms.AbstractLdapAuthenticationRealm;
 import org.sonatype.security.ldap.realms.LdapManager;
@@ -28,8 +37,31 @@ import org.eclipse.sisu.Description;
 public class NexusLdapAuthenticationRealm
     extends AbstractLdapAuthenticationRealm
 {
+  private final AuthorizationInfo NULL_INFO = new SimpleAccount();
+
   @Inject
   public NexusLdapAuthenticationRealm(final LdapManager ldapManager) {
     super(ldapManager);
+  }
+
+  @Override
+  protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token) throws AuthenticationException {
+    return super.doGetAuthenticationInfo(token);
+  }
+
+  @Override
+  protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
+    // talend: cache
+    final Map<Object, AuthorizationInfo> cache = TalendRequestCache.get().getAuthorizationInfo();
+    final AuthorizationInfo authorizationInfo = cache.get(this);
+    if (authorizationInfo != null) {
+      if (authorizationInfo == NULL_INFO) {
+        return null;
+      }
+      return authorizationInfo;
+    }
+    final AuthorizationInfo info = super.doGetAuthorizationInfo(principals);
+    cache.put(this, info == null ? NULL_INFO : info);
+    return info;
   }
 }

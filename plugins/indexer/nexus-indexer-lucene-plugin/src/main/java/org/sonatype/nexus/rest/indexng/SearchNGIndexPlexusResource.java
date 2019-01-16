@@ -403,6 +403,9 @@ public class SearchNGIndexPlexusResource
         versionHit.setGroupId(ai.groupId);
         versionHit.setArtifactId(ai.artifactId);
         versionHit.setVersion(ai.version);
+        versionHit.setUrl(ai.getAttributes().get("url"));
+        versionHit.setLicense(ai.getAttributes().get("license"));
+        versionHit.setLicenseUrl(ai.getAttributes().get("licenseUrl"));
         versionHit.setHighlightedFragment(getMatchHighlightHtmlSnippet(ai));
 
         gaholder.putVersionHit(version, versionHit);

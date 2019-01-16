@@ -38,6 +38,7 @@ import org.sonatype.nexus.proxy.repository.ShadowRepository;
 import org.sonatype.nexus.scheduling.NexusScheduler;
 import org.sonatype.nexus.tasks.SynchronizeShadowsTask;
 import org.sonatype.security.SecuritySystem;
+import org.sonatype.security.events.OnShutdown;
 import org.sonatype.sisu.goodies.eventbus.EventBus;
 import org.sonatype.sisu.goodies.lifecycle.Lifecycle;
 import org.sonatype.sisu.goodies.lifecycle.LifecycleSupport;
@@ -218,6 +219,7 @@ public class NxApplication
     log.info("Uptime: {}", PeriodFormat.getDefault().print(new Period(uptime)));
 
     // Due to no dependency mechanism in NX for components, we need to fire off a hint about shutdown first
+    eventBus.post(new OnShutdown()); // for security
     eventBus.post(new NexusStoppingEvent(this));
 
     // kill services + notify

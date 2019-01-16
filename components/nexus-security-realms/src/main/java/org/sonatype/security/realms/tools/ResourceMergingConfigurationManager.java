@@ -67,7 +67,12 @@ public class ResourceMergingConfigurationManager
                                              List<StaticSecurityResource> staticResources)
   {
     super(eventBus);
-    this.dynamicResources = dynamicResources;
+
+    // talend: in practise we have a single one and it is never reloaded
+    //         but keeping the lazy iterator of guice is pretty slow and costly at *runtime* so skip it
+    // this.dynamicResources = dynamicResources;
+    this.dynamicResources = new ArrayList<>(dynamicResources);
+
     this.manager = manager;
     this.staticResources = staticResources;
   }

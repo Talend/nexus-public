@@ -208,7 +208,9 @@ public class M2GavCalculator
   public String gavToPath(Gav gav) {
     StringBuilder path = new StringBuilder("/");
 
-    path.append(gav.getGroupId().replaceAll("(?m)(.)\\.", "$1/")); // replace all '.' except the first char
+    path.append(gav.getGroupId().startsWith(".") ? "." + gav.getGroupId().substring(1).replace('.', '/') : gav.getGroupId().replace('.', '/'));
+    // Talend patch: avoid a regex for each dep, replaceAll will compile it each single time for something that trivial to do!
+    // old: path.append(gav.getGroupId().replaceAll("(?m)(.)\\.", "$1/")); // replace all '.' except the first char
 
     path.append("/");
 

@@ -14,19 +14,18 @@ package org.sonatype.security.realms;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.enterprise.inject.Typed;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-
-import org.sonatype.security.SecuritySystem;
-import org.sonatype.security.usermanagement.RoleIdentifier;
-import org.sonatype.security.usermanagement.RoleMappingUserManager;
-import org.sonatype.security.usermanagement.UserManager;
-import org.sonatype.security.usermanagement.UserNotFoundException;
 
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
@@ -34,13 +33,22 @@ import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.credential.Sha1CredentialsMatcher;
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
+import org.apache.shiro.authz.Permission;
 import org.apache.shiro.authz.SimpleAuthorizationInfo;
+import org.apache.shiro.authz.permission.RolePermissionResolver;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.subject.PrincipalCollection;
+import org.apache.shiro.util.CollectionUtils;
 import org.eclipse.sisu.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonatype.security.SecuritySystem;
+import org.sonatype.security.cache.TalendRequestCache;
+import org.sonatype.security.usermanagement.RoleIdentifier;
+import org.sonatype.security.usermanagement.RoleMappingUserManager;
+import org.sonatype.security.usermanagement.UserManager;
+import org.sonatype.security.usermanagement.UserNotFoundException;
 
 /**
  * An Authorizing Realm backed by an XML file see the security-model-xml module. This model defines users, roles, and
@@ -64,7 +72,12 @@ public class XmlAuthorizingRealm
 
   private final Map<String, UserManager> userManagerMap;
 
+  private final AtomicInteger cacheSize = new AtomicInteger();
+  private final ConcurrentMap<CollectionWrapper, Collection<Permission>> collectionCache = new ConcurrentHashMap<>();
+
   private final SecuritySystem securitySystem;
+
+  private volatile long lastResolverRefresh;
 
   @Inject
   public XmlAuthorizingRealm(UserManager userManager, SecuritySystem securitySystem,
@@ -75,6 +88,8 @@ public class XmlAuthorizingRealm
     this.userManagerMap = userManagerMap;
     setCredentialsMatcher(new Sha1CredentialsMatcher());
     setName(ROLE);
+    setAuthenticationCachingEnabled(false);
+    setAuthenticationCache(null);
   }
 
   @Override
@@ -90,7 +105,51 @@ public class XmlAuthorizingRealm
   }
 
   @Override
+  protected Collection<Permission> getPermissions(final AuthorizationInfo info) {
+    if (info != null) {
+      if (!CollectionUtils.isEmpty(info.getObjectPermissions()) || !CollectionUtils.isEmpty(info.getStringPermissions())) {
+        return super.getPermissions(info);
+      }
+      final RolePermissionResolver resolver = getRolePermissionResolver();
+      if (resolver != null && !CollectionUtils.isEmpty(info.getRoles())) {
+        if (XmlRolePermissionResolver.class.isInstance(resolver) && XmlRolePermissionResolver.class.cast(resolver).getLastRefresh() != lastResolverRefresh) {
+          collectionCache.clear();
+          lastResolverRefresh =  XmlRolePermissionResolver.class.cast(resolver).getLastRefresh();
+        }
+
+        final CollectionWrapper key = new CollectionWrapper(info.getRoles());
+        final Collection<Permission> permissions = collectionCache.get(key);
+        if (permissions != null) {
+          return permissions;
+        }
+
+        final Collection<Permission> perms = new LinkedHashSet<>(key.collection.size());
+        for (final String roleName : key.collection) {
+          final Collection<Permission> resolved = resolver.resolvePermissionsInRole(roleName);
+          if (!CollectionUtils.isEmpty(resolved)) {
+            perms.addAll(resolved);
+          }
+        }
+        if (cacheSize.get() > 50000) {
+          collectionCache.clear();
+        }
+        collectionCache.put(key, perms);
+        cacheSize.addAndGet(key.collection.size());
+        return perms;
+      }
+    }
+    return super.getPermissions(info);
+  }
+
+  @Override
   protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals) {
+    // talend: cache
+    final Map<Object, AuthorizationInfo> cache = TalendRequestCache.get().getAuthorizationInfo();
+    final AuthorizationInfo authorizationInfo = cache.get(this);
+    if (authorizationInfo != null) {
+      return authorizationInfo;
+    }
+
     if (principals == null) {
       throw new AuthorizationException("Cannot authorize with no principals.");
     }
@@ -157,7 +216,7 @@ public class XmlAuthorizingRealm
     }
 
     SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(roles);
-
+    cache.put(this, info);
     return info;
   }
 
@@ -173,6 +232,34 @@ public class XmlAuthorizingRealm
     if (realmNames.contains(getName())) {
       realmNames.remove(getName());
       realmNames.add("default");
+    }
+  }
+
+  private static class CollectionWrapper {
+    private final Collection<String> collection;
+    private final int hash;
+
+    private CollectionWrapper(final Collection<String> collection) {
+      this.collection = collection;
+      this.hash = collection.hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      final CollectionWrapper that = CollectionWrapper.class.cast(o);
+      return hash == that.hash &&
+              Objects.equals(collection, that.collection);
+    }
+
+    @Override
+    public int hashCode() {
+      return hash;
     }
   }
 }

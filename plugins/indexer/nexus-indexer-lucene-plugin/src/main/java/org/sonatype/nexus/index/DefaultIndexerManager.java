@@ -12,6 +12,8 @@
  */
 package org.sonatype.nexus.index;
 
+import static java.util.Arrays.asList;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -2001,7 +2003,7 @@ public class DefaultIndexerManager
     }
 
     if (aTerm != null) {
-      bq.add(constructQuery(MAVEN.ARTIFACT_ID, aTerm, searchType), BooleanClause.Occur.MUST);
+      constructArtifactQuery(bq, aTerm, searchType);
     }
 
     if (vTerm != null) {
@@ -2611,6 +2613,25 @@ public class DefaultIndexerManager
 
     public IncrementalIndexUpdateException(String message) {
       super(message);
+    }
+  }
+
+  // TALEND
+  private void constructArtifactQuery(BooleanQuery bq, String aTerm,
+                                      SearchType searchType) {
+    if (aTerm == null) {
+      return;
+    }
+    Set<String> artifactIds = new HashSet<>(asList(aTerm.split(",")));
+    if (artifactIds.size() > 1) {
+      BooleanQuery aq = new BooleanQuery();
+      for (final String it : artifactIds) {
+        aq.add(constructQuery(MAVEN.ARTIFACT_ID, it, searchType), BooleanClause.Occur.SHOULD);
+      }
+      bq.add(aq, BooleanClause.Occur.MUST);
+    } else {
+      bq.add(constructQuery(MAVEN.ARTIFACT_ID, aTerm, searchType),
+              BooleanClause.Occur.MUST);
     }
   }
 }

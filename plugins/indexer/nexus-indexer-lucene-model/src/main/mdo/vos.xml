@@ -478,6 +478,27 @@
       </annotations>
       <fields>
         <field>
+          <name>url</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>true</required>
+          <description>The url of the artifact.</description>
+        </field>
+        <field>
+          <name>license</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>true</required>
+          <description>The license of the artifact.</description>
+        </field>
+        <field>
+          <name>licenseUrl</name>
+          <version>1.0.0+</version>
+          <type>String</type>
+          <required>true</required>
+          <description>The license url of the artifact.</description>
+        </field>
+        <field>
           <name>groupId</name>
           <version>1.0.0+</version>
           <type>String</type>

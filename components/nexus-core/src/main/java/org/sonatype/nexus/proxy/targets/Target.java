@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -38,7 +39,7 @@ public class Target
 
   private final Set<String> patternTexts;
 
-  private final Set<Pattern> patterns;
+  private final Set<Predicate<String>> matchers;
 
   public Target(String id, String name, ContentClass contentClass, Collection<String> patternTexts)
       throws PatternSyntaxException
@@ -53,10 +54,29 @@ public class Target
 
     this.patternTexts = new HashSet<String>(patternTexts);
 
-    this.patterns = new HashSet<Pattern>(patternTexts.size());
+    this.matchers = new HashSet<>(patternTexts.size());
 
-    for (String patternText : patternTexts) {
-      patterns.add(Pattern.compile(patternText));
+    // Talend: we moved from pattern to predicate to ensure we can optimize simple patterns and avoid pattern
+    //         compilation
+    for (final String patternText : patternTexts) {
+      if (patternText.startsWith(".*/org/talend/") && patternText.endsWith(".*")) {// first cause the most common for us
+        final String included = patternText.substring(".*".length(), patternText.length() - ".*".length());
+        matchers.add(s -> s.startsWith(included));
+        break;
+      } else if (".*".equals(patternText)) { // .*maven-metadata\.xml.*
+        matchers.add(s -> true);
+        break;
+      } else if ("(?!.*-sources.*).*".equals(patternText)) {
+        matchers.add(s -> !s.contains("-sources"));
+        break;
+      } else if (".*maven-metadata\\.xml.*".equals(patternText)) {
+        matchers.add(s -> s.contains("maven-metadata.xml"));
+        break;
+      }
+
+      // default nexus impl
+      final Pattern pattern = Pattern.compile(patternText);
+      matchers.add(s -> pattern.matcher(s).matches());
     }
   }
 
@@ -83,8 +103,8 @@ public class Target
         || getContentClass().isCompatible(contentClass)
         || contentClass.isCompatible(getContentClass())) {
       // look for pattern matching
-      for (Pattern pattern : patterns) {
-        if (pattern.matcher(path).matches()) {
+      for (final Predicate<String> pattern : matchers) {
+        if (pattern.test(path)) {
           return true;
         }
       }

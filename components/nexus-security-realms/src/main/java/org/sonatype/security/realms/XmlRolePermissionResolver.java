@@ -12,13 +12,21 @@
  */
 package org.sonatype.security.realms;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 import javax.enterprise.inject.Typed;
@@ -26,26 +34,25 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import org.apache.shiro.authz.Permission;
+import org.apache.shiro.authz.permission.RolePermissionResolver;
 import org.sonatype.security.authorization.NoSuchPrivilegeException;
 import org.sonatype.security.authorization.NoSuchRoleException;
 import org.sonatype.security.authorization.PermissionFactory;
 import org.sonatype.security.events.AuthorizationConfigurationChanged;
+import org.sonatype.security.events.OnShutdown;
 import org.sonatype.security.events.SecurityConfigurationChanged;
 import org.sonatype.security.model.CPrivilege;
 import org.sonatype.security.model.CRole;
 import org.sonatype.security.realms.privileges.PrivilegeDescriptor;
 import org.sonatype.security.realms.tools.ConfigurationManager;
-import org.sonatype.security.realms.tools.ConfigurationManagerAction;
 import org.sonatype.security.realms.tools.StaticSecurityResource;
 import org.sonatype.sisu.goodies.common.ComponentSupport;
 import org.sonatype.sisu.goodies.eventbus.EventBus;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.shiro.authz.Permission;
-import org.apache.shiro.authz.permission.RolePermissionResolver;
-
-import com.google.common.base.Throwables;
 import com.google.common.collect.MapMaker;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -85,6 +92,12 @@ public class XmlRolePermissionResolver
    */
   private final Cache<String,String> roleNotFoundCache;
 
+  private final ScheduledExecutorService configValidatorPool;
+  private final ScheduledFuture<?> refreshFuture;
+
+  private final AtomicReference<String> aPermissionToUpdate = new AtomicReference<>();
+
+  private volatile long lastRefresh = System.currentTimeMillis();
 
   @Inject
   public XmlRolePermissionResolver(@Named("default") ConfigurationManager configuration,
@@ -97,9 +110,25 @@ public class XmlRolePermissionResolver
     this.privilegeDescriptors = privilegeDescriptors;
     this.permissionFactory = permissionFactory;
     this.permissionsCache = new MapMaker().softValues().makeMap();
-    this.rolePermissionsCache = new MapMaker().softValues().makeMap();
+    this.rolePermissionsCache = new ConcurrentHashMap<>();
     this.roleNotFoundCache = CacheBuilder.newBuilder().maximumSize(roleNotFoundCacheSize).build();
     eventBus.register(this);
+
+    // Talend: evict like that the permissions to ensure it is up to date but without locking all threads
+    final AtomicInteger counter = new AtomicInteger();
+    configValidatorPool = Executors.newSingleThreadScheduledExecutor(task -> {
+      final Thread thread = new Thread(task, "XmlRolePermissionResolver-" + counter.incrementAndGet());
+      thread.setDaemon(true);
+      thread.setPriority(Thread.MIN_PRIORITY);
+      return thread;
+    });
+    final int refreshDelay = 3;
+    refreshFuture = configValidatorPool.schedule(() -> {
+      final String value = aPermissionToUpdate.get();
+      if (value != null) {
+        reloadConfigToMakeSureNotDirty(value);
+      }
+    }, refreshDelay, TimeUnit.SECONDS);
   }
 
   /**
@@ -109,8 +138,26 @@ public class XmlRolePermissionResolver
     permissionsCache.clear();
     rolePermissionsCache.clear();
     roleNotFoundCache.invalidateAll();
+    lastRefresh = System.currentTimeMillis();
     log.trace("Cache invalidated");
   }
+
+  public long getLastRefresh() {
+    return lastRefresh;
+  }
+
+  @Subscribe
+  public void on(final OnShutdown event) {
+    refreshFuture.cancel(true);
+    configValidatorPool.shutdownNow();
+    try {
+      configValidatorPool.awaitTermination(2, TimeUnit.SECONDS);
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    invalidate();
+  }
+
 
   @AllowConcurrentEvents
   @Subscribe
@@ -127,12 +174,20 @@ public class XmlRolePermissionResolver
   public Collection<Permission> resolvePermissionsInRole(final String roleString) {
     try {
       final Set<Permission> permissions = new LinkedHashSet<Permission>();
-      configuration.runRead(new ConfigurationManagerAction()
-      {
-        public void run() throws Exception {
-          resolvePermissionsInRole(roleString, permissions);
+
+      // talend: don't check that in the locked block since it is thread save
+      //         and don't reload the config each time but ~once per sec (= accept 1s of dirtyness)
+
+      Collection<Permission> cachedPermissions = rolePermissionsCache.get(roleString);
+      if (cachedPermissions != null) {
+        if (!cachedPermissions.isEmpty()) {
+          permissions.addAll(cachedPermissions);
         }
-      });
+        return permissions;
+      }
+
+      configuration.runRead(() -> resolvePermissionsInRole(roleString, permissions));
+      aPermissionToUpdate.set(roleString);
       return permissions;
     }
     catch (Exception e) {
@@ -141,18 +196,6 @@ public class XmlRolePermissionResolver
   }
 
   protected void resolvePermissionsInRole(final String roleString, final Collection<Permission> permissions) {
-
-    // check memory-sensitive cache; use cached value as long as config is not dirty
-    Collection<Permission> cachedPermissions = rolePermissionsCache.get(roleString);
-    if (cachedPermissions != null) {
-      reloadConfigToMakeSureNotDirty(roleString);
-
-      cachedPermissions = rolePermissionsCache.get(roleString);
-      if (cachedPermissions != null && !cachedPermissions.isEmpty()) {
-        permissions.addAll(cachedPermissions);
-        return;
-      }
-    }
 
     final LinkedList<String> rolesToProcess = new LinkedList<>();
     final Set<String> processedRoleIds = new LinkedHashSet<>();
@@ -173,7 +216,7 @@ public class XmlRolePermissionResolver
           CRole role = configuration.readRole(roleId);
 
           // check memory-sensitive cache (after readRole to allow for the dirty check)
-          cachedPermissions = rolePermissionsCache.get(roleId);
+          final Collection<Permission> cachedPermissions = rolePermissionsCache.get(roleId);
           if (cachedPermissions != null) {
             permissions.addAll(cachedPermissions);
             continue; // use cached results
@@ -194,6 +237,10 @@ public class XmlRolePermissionResolver
           handleNoSuchRole(roleId, e);
         }
       }
+    }
+
+    if (rolePermissionsCache.size() > 50000) { // unlikely but let's add a guard
+      rolePermissionsCache.clear();
     }
 
     // cache result of (non-trivial) computation

@@ -12,11 +12,16 @@
  */
 package org.sonatype.security.realms;
 
+import static java.util.Collections.emptySet;
+
+import java.util.Collection;
+
 import javax.enterprise.inject.Typed;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import org.apache.shiro.authz.Permission;
 import org.sonatype.security.model.CUser;
 import org.sonatype.security.realms.tools.ConfigurationManager;
 import org.sonatype.security.realms.tools.ConfigurationManagerAction;
@@ -116,7 +121,17 @@ public class XmlAuthenticatingRealm
   }
 
   @Override
-  protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection arg0) {
+  protected Collection<Permission> getPermissions(AuthorizationInfo info) {
+    return emptySet();
+  }
+
+  @Override // talend: avoid cache management being said the delegate impl does nothing
+  protected AuthorizationInfo getAuthorizationInfo(final PrincipalCollection arg0) {
+    return null;
+  }
+
+  @Override
+  protected AuthorizationInfo doGetAuthorizationInfo(final PrincipalCollection arg0) {
     return null;
   }
 

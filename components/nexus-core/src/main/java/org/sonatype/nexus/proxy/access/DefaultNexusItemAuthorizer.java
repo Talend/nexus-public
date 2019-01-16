@@ -15,11 +15,13 @@ package org.sonatype.nexus.proxy.access;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
+import org.apache.shiro.subject.Subject;
 import org.sonatype.nexus.proxy.NoSuchRepositoryException;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.registry.RepositoryRegistry;
@@ -28,9 +30,8 @@ import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.proxy.targets.TargetMatch;
 import org.sonatype.nexus.proxy.targets.TargetSet;
 import org.sonatype.security.SecuritySystem;
+import org.sonatype.security.cache.TalendRequestCache;
 import org.sonatype.sisu.goodies.common.ComponentSupport;
-
-import org.apache.shiro.subject.Subject;
 
 /**
  * Default implementation of Nexus Authorizer, that relies onto JSecurity.
@@ -157,9 +158,15 @@ public class DefaultNexusItemAuthorizer
     if (trace) {
       log.trace("Checking if subject '{}' has one of these permissions: {}", subject.getPrincipal(), perms);
     }
+    final Map<String, Boolean> permCache = TalendRequestCache.get(subject).getPermCache();
     for (String perm : perms) {
-      if (subject.isPermitted(perm)) {
-        // TODO: we should remember/cache these decisions per-thread and not re-evaluate it always from Security
+      Boolean isPermitted = permCache.get(perm);
+      if (isPermitted != null && isPermitted) {
+        return true;
+      }
+      isPermitted = subject.isPermitted(perm);
+      permCache.put(perm, isPermitted);
+      if (isPermitted) {
         if (trace) {
           log.trace("Subject '{}' has permission: {}; allowing", subject.getPrincipal(), perm);
         }

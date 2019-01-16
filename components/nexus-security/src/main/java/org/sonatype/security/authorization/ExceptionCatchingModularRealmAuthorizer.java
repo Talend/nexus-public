@@ -173,8 +173,11 @@ public class ExceptionCatchingModularRealmAuthorizer
 
   @Override
   public boolean isPermitted(PrincipalCollection subjectPrincipal, String permission) {
+    // don't call ldap for anonymous user!
+    final boolean anonymous = subjectPrincipal != null && "anonymous".equals(subjectPrincipal.getPrimaryPrincipal());
+
     for (Realm realm : this.getRealms()) {
-      if (!(realm instanceof Authorizer)) {
+      if (!(realm instanceof Authorizer) || shouldSkipRealm(anonymous, realm)) {
         continue; // ignore non-authorizing realms
       }
       try {
@@ -202,6 +205,11 @@ public class ExceptionCatchingModularRealmAuthorizer
     }
 
     return false;
+  }
+
+  // Talend
+  private boolean shouldSkipRealm(final boolean anonymous, final Realm realm) {
+    return anonymous && "LdapAuthenticatingRealm".equals(realm.getName());
   }
 
   @Override

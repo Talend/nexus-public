@@ -20,6 +20,7 @@ import org.apache.shiro.authc.pam.ModularRealmAuthenticator;
 import org.apache.shiro.realm.Realm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonatype.security.cache.TalendRequestCache;
 
 /**
  * This Authenticator will only try to authenticate with each realm. The first successful AuthenticationInfo found will
@@ -40,6 +41,12 @@ public class FirstSuccessfulModularRealmAuthenticator
 
   @Override
   protected AuthenticationInfo doMultiRealmAuthentication(Collection<Realm> realms, AuthenticationToken token) {
+    // request cache - nexus uses nested calls
+    final AuthenticationInfo authenticationInfo = TalendRequestCache.get().getAuthenticationInfo();
+    if (authenticationInfo != null) {
+      return authenticationInfo;
+    }
+
     logger.trace("Iterating through [" + realms.size() + "] realms for PAM authentication");
 
     for (Realm realm : realms) {
@@ -56,6 +63,7 @@ public class FirstSuccessfulModularRealmAuthenticator
           // just make sure are ducks are in a row
           // return the first successful login.
           if (info != null) {
+            TalendRequestCache.get().setAuthenticationInfo(info);
             return info;
           }
           else if (logger.isTraceEnabled()) {
