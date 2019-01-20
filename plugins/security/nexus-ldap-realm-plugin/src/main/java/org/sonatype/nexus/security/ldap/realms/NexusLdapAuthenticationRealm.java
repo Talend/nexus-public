@@ -22,6 +22,7 @@ import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.SimpleAccount;
+import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.AuthorizationInfo;
 import org.apache.shiro.subject.PrincipalCollection;
 import org.sonatype.security.cache.TalendRequestCache;
@@ -37,11 +38,15 @@ import org.eclipse.sisu.Description;
 public class NexusLdapAuthenticationRealm
     extends AbstractLdapAuthenticationRealm
 {
-  private final AuthorizationInfo NULL_INFO = new SimpleAccount();
+  private final AuthorizationException preComputedException = new AuthorizationException(
+        "LDAP naming error while attempting to retrieve authorization - from NexusLdapAuthenticationRealm cache.");
+  private final AuthorizationInfo nullInfo = new SimpleAccount();
+  private final AuthorizationInfo exceptionInfo = new SimpleAccount();
 
   @Inject
   public NexusLdapAuthenticationRealm(final LdapManager ldapManager) {
     super(ldapManager);
+    preComputedException.setStackTrace(new StackTraceElement[0]);
   }
 
   @Override
@@ -55,13 +60,21 @@ public class NexusLdapAuthenticationRealm
     final Map<Object, AuthorizationInfo> cache = TalendRequestCache.get().getAuthorizationInfo();
     final AuthorizationInfo authorizationInfo = cache.get(this);
     if (authorizationInfo != null) {
-      if (authorizationInfo == NULL_INFO) {
+      if (authorizationInfo == exceptionInfo) {
+        throw preComputedException;
+      }
+      if (authorizationInfo == nullInfo) {
         return null;
       }
       return authorizationInfo;
     }
-    final AuthorizationInfo info = super.doGetAuthorizationInfo(principals);
-    cache.put(this, info == null ? NULL_INFO : info);
-    return info;
+    try {
+      final AuthorizationInfo info = super.doGetAuthorizationInfo(principals);
+      cache.put(this, info);
+      return info;
+    } catch (final AuthorizationException ae) {
+      cache.put(this, exceptionInfo);
+      throw ae;
+    }
   }
 }
