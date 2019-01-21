@@ -123,12 +123,12 @@ public class XmlRolePermissionResolver
       return thread;
     });
     final int refreshDelay = 3;
-    refreshFuture = configValidatorPool.schedule(() -> {
+    refreshFuture = configValidatorPool.scheduleAtFixedRate(() -> {
       final String value = aPermissionToUpdate.get();
       if (value != null) {
         reloadConfigToMakeSureNotDirty(value);
       }
-    }, refreshDelay, TimeUnit.SECONDS);
+    }, refreshDelay, refreshDelay, TimeUnit.SECONDS);
   }
 
   /**
