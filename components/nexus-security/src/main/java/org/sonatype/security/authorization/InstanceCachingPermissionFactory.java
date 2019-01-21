@@ -12,6 +12,7 @@
  */
 package org.sonatype.security.authorization;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import javax.enterprise.inject.Typed;
@@ -19,7 +20,6 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
-import com.google.common.collect.MapMaker;
 import org.apache.shiro.authz.Permission;
 
 /**
@@ -44,7 +44,7 @@ public class InstanceCachingPermissionFactory
 
   @Inject
   public InstanceCachingPermissionFactory(@Named("wildcard") final PermissionFactory delegate) {
-    this.instances = new MapMaker().weakValues().makeMap();
+    this.instances = new ConcurrentHashMap<>();
     this.delegate = delegate;
   }
 
@@ -59,6 +59,9 @@ public class InstanceCachingPermissionFactory
     Permission result = instances.get(permission);
     if (result == null) {
       Permission newPermission = delegateCreate(permission);
+      if (instances.size() > 50000) {
+        instances.clear();
+      }
       result = instances.putIfAbsent(permission, newPermission);
       if (result == null) {
         // put succeeded, use new value

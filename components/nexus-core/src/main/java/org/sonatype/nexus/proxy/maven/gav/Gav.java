@@ -29,7 +29,7 @@ public class Gav
           "^(.*)-([0-9]{8}.[0-9]{6})-([0-9]+)$|^([0-9]{8}.[0-9]{6})-([0-9]+)$|^(.*)([0-9]{8}.[0-9]{6})-([0-9]+)$");
 
   public static boolean isSnapshot(final String version) {
-    return VERSION_FILE_PATTERN.matcher(version).matches() || version.endsWith(SNAPSHOT_VERSION);
+    return version.endsWith(SNAPSHOT_VERSION) || VERSION_FILE_PATTERN.matcher(version).matches();
   }
 
   /**

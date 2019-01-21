@@ -44,6 +44,7 @@ import org.eclipse.sisu.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonatype.security.SecuritySystem;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 import org.sonatype.security.cache.TalendRequestCache;
 import org.sonatype.security.usermanagement.RoleIdentifier;
 import org.sonatype.security.usermanagement.RoleMappingUserManager;
@@ -102,6 +103,24 @@ public class XmlAuthorizingRealm
       throws AuthenticationException
   {
     return null;
+  }
+
+  @Override // todo: optimize by storing the perm tree (foo:bar:dummy wil lhave a list for foo, then for bar etc)
+  protected boolean isPermitted(final Permission permission, final AuthorizationInfo info) {
+    Collection<Permission> perms = getPermissions(info);
+    if (perms != null && !perms.isEmpty()) {
+      if (WildcardPermissionFactory.ConstantPermission.class.isInstance(permission)) {
+        if (perms.contains(permission)) {
+          return true;
+        }
+      }
+      for (Permission perm : perms) {
+        if (perm.implies(permission)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @Override

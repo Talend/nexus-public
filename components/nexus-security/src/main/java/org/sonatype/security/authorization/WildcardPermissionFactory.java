@@ -37,36 +37,44 @@ public class WildcardPermissionFactory
 {
   @Override
   public Permission create(final String permission) {
-    if (!isWildcardPerm(permission)) { // talend: this is slow!
+    if (!isWildcardPerm(permission)) { // talend: wildcard is slow, todo: support foo:bar:a,b,c in constant style
       return new ConstantPermission(permission);
     }
-    return new WildcardPermission(permission) {
-      private final int cachedHash = super.hashCode();
-
-      @Override
-      public boolean implies(final Permission p) {
-        if (ConstantPermission.class.isInstance(p)) {
-          return super.implies(new WildcardPermission(ConstantPermission.class.cast(p).permission));
-        }
-        return super.implies(p);
-      }
-
-      @Override
-      public int hashCode() {
-        return cachedHash;
-      }
-    };
+    return new HashCachedWildcardPermission(permission);
   }
+
 
   private boolean isWildcardPerm(final String permission) {
     return permission.contains("*") || permission.contains(",");
   }
 
-  private static class ConstantPermission implements Permission, Serializable {
-    private final String permission;
+  public static class HashCachedWildcardPermission extends WildcardPermission {
     private final int cachedHash = super.hashCode();
 
-    private ConstantPermission(final String permission) {
+    private HashCachedWildcardPermission(final String wildcardString) {
+      super(wildcardString);
+    }
+
+    @Override
+    public int hashCode() {
+      return cachedHash;
+    }
+
+    @Override
+    public boolean implies(final Permission p) {
+      if (ConstantPermission.class.isInstance(p)) {
+        return super.implies(ConstantPermission.class.cast(p).asWildcard());
+      }
+      return super.implies(p);
+    }
+  }
+
+  public static class ConstantPermission implements Permission, Serializable {
+    private final String permission;
+    private final int cachedHash = super.hashCode();
+    private volatile HashCachedWildcardPermission wildcard;
+
+    public ConstantPermission(final String permission) {
       this.permission = permission == null ? "" : permission;
     }
 
@@ -75,7 +83,7 @@ public class WildcardPermissionFactory
       if (!ConstantPermission.class.isInstance(p)) {
         return p.implies(this);
       }
-      return ConstantPermission.class.cast(p).permission.equals(permission);
+      return p == this;
     }
 
     @Override
@@ -91,6 +99,17 @@ public class WildcardPermissionFactory
     @Override
     public String toString() {
       return permission;
+    }
+
+    private Permission asWildcard() {
+      if (wildcard == null) {
+        synchronized (this) {
+          if (wildcard == null) {
+            wildcard = new HashCachedWildcardPermission(permission);
+          }
+        }
+      }
+      return wildcard;
     }
   }
 }

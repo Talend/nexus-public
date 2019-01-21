@@ -20,7 +20,10 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -64,6 +67,7 @@ public class DefaultTargetRegistry
   // a cache view of "live" targets, keyed by target ID
   // eagerly rebuilt on every configuration change
   private Map<String, Target> targets;
+  private final ConcurrentMap<CacheKey, TargetSet> targetSetCache = new ConcurrentHashMap<>();
 
   // ==
 
@@ -224,13 +228,21 @@ public class DefaultTargetRegistry
   public TargetSet getTargetsForRepositoryPath(Repository repository, String path) {
     log.debug("Resolving targets for repository='{}' for path='{}'", repository.getId(), path);
 
-    final TargetSet result = new TargetSet();
-    for (Target t : getRepositoryTargets()) {
-      if (t.isPathContained(repository.getRepositoryContentClass(), path)) {
-        result.addTargetMatch(new TargetMatch(t, repository));
+    final CacheKey key = new CacheKey(repository, path);
+    TargetSet targetSet = targetSetCache.get(key);
+    if (targetSet == null) {
+      targetSet = new TargetSet();
+      for (final Target t : getRepositoryTargets()) {
+        if (t.isPathContained(repository.getRepositoryContentClass(), path)) {
+          targetSet.addTargetMatch(new TargetMatch(t, repository));
+        }
       }
+      if (targetSetCache.size() > 50000) {
+        targetSetCache.clear();
+      }
+      targetSetCache.putIfAbsent(key, targetSet);
     }
-    return result;
+    return targetSet;
   }
 
   public boolean hasAnyApplicableTarget(Repository repository) {
@@ -242,5 +254,34 @@ public class DefaultTargetRegistry
       }
     }
     return false;
+  }
+
+  private static class CacheKey {
+    private final Repository repository;
+    private final String path;
+    private final int hash;
+
+    private CacheKey(final Repository repository, final String path) {
+      this.repository = repository;
+      this.path = path;
+      this.hash = Objects.hash(repository, path);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      final CacheKey cacheKey = CacheKey.class.cast(o);
+      return Objects.equals(repository, cacheKey.repository) && Objects.equals(path, cacheKey.path);
+    }
+
+    @Override
+    public int hashCode() {
+      return hash;
+    }
   }
 }

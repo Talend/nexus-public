@@ -24,6 +24,8 @@ import java.util.Properties;
 
 import javax.inject.Inject;
 
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.util.ThreadContext;
 import org.sonatype.security.configuration.model.SecurityConfiguration;
 import org.sonatype.security.configuration.source.SecurityConfigurationSource;
 import org.sonatype.security.guice.SecurityModule;
@@ -96,6 +98,9 @@ public abstract class AbstractSecurityTestCase
     try {
       lookup(SecuritySystem.class).stop();
       lookup(CacheManager.class).shutdown();
+      ThreadContext.remove();
+      ThreadContext.unbindSubject();
+      ThreadContext.unbindSecurityManager();
     }
     finally {
       super.tearDown();

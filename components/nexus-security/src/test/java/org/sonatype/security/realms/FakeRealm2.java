@@ -15,6 +15,7 @@ package org.sonatype.security.realms;
 import java.util.Collections;
 
 import javax.enterprise.inject.Typed;
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
@@ -30,6 +31,7 @@ import org.apache.shiro.authz.permission.WildcardPermission;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.subject.PrincipalCollection;
+import org.sonatype.security.authorization.PermissionFactory;
 import org.sonatype.security.authorization.WildcardPermissionFactory;
 
 @Singleton
@@ -38,6 +40,13 @@ import org.sonatype.security.authorization.WildcardPermissionFactory;
 public class FakeRealm2
     extends AuthorizingRealm
 {
+  private final PermissionFactory factory;
+
+  @Inject
+  public FakeRealm2(@Named("caching") final PermissionFactory factory) {
+    this.factory = factory;
+  }
+
   @Override
   public String getName() {
     return FakeRealm2.class.getName();
@@ -48,7 +57,7 @@ public class FakeRealm2
 
     SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(Collections.singleton("role"));
 
-    Permission permission = new WildcardPermissionFactory().create("other:perm");
+    Permission permission = factory.create("other:perm");
 
     info.setObjectPermissions(Collections.singleton(permission));
 

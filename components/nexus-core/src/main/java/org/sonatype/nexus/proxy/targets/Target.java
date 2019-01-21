@@ -12,17 +12,20 @@
  */
 package org.sonatype.nexus.proxy.targets;
 
+import static java.util.Collections.singletonList;
+
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-import org.sonatype.nexus.proxy.registry.ContentClass;
-
 import org.codehaus.plexus.util.StringUtils;
+import org.sonatype.nexus.proxy.registry.ContentClass;
 
 /**
  * This is a repository target.
@@ -31,6 +34,8 @@ import org.codehaus.plexus.util.StringUtils;
  */
 public class Target
 {
+  private static final Collection<Predicate<String>> TRUE = singletonList(value -> true);
+
   private final String id;
 
   private final String name;
@@ -39,7 +44,7 @@ public class Target
 
   private final Set<String> patternTexts;
 
-  private final Set<Predicate<String>> matchers;
+  private final Collection<Predicate<String>> matchers;
 
   public Target(String id, String name, ContentClass contentClass, Collection<String> patternTexts)
       throws PatternSyntaxException
@@ -52,31 +57,32 @@ public class Target
 
     this.contentClass = contentClass;
 
-    this.patternTexts = new HashSet<String>(patternTexts);
+    this.patternTexts = new HashSet<>(patternTexts);
 
-    this.matchers = new HashSet<>(patternTexts.size());
+    if (patternTexts.contains(".*")) {
+      this.matchers = TRUE;
+    } else {
+      this.matchers = new ArrayList<>(patternTexts.size());
 
-    // Talend: we moved from pattern to predicate to ensure we can optimize simple patterns and avoid pattern
-    //         compilation
-    for (final String patternText : patternTexts) {
-      if (patternText.startsWith(".*/org/talend/") && patternText.endsWith(".*")) {// first cause the most common for us
-        final String included = patternText.substring(".*".length(), patternText.length() - ".*".length());
-        matchers.add(s -> s.startsWith(included));
-        break;
-      } else if (".*".equals(patternText)) { // .*maven-metadata\.xml.*
-        matchers.add(s -> true);
-        break;
-      } else if ("(?!.*-sources.*).*".equals(patternText)) {
-        matchers.add(s -> !s.contains("-sources"));
-        break;
-      } else if (".*maven-metadata\\.xml.*".equals(patternText)) {
-        matchers.add(s -> s.contains("maven-metadata.xml"));
-        break;
+      // Talend: we moved from pattern to predicate to ensure we can optimize simple patterns and avoid pattern
+      //         compilation
+      for (final String patternText : patternTexts) {
+        if (patternText.startsWith(".*/org/talend/") && patternText.endsWith(".*")) {// first cause the most common for us
+          final String included = patternText.substring(".*".length(), patternText.length() - ".*".length());
+          matchers.add(s -> s.startsWith(included));
+          break;
+        } else if ("(?!.*-sources.*).*".equals(patternText)) {
+          matchers.add(s -> !s.contains("-sources"));
+          break;
+        } else if (".*maven-metadata\\.xml.*".equals(patternText)) {
+          matchers.add(s -> s.contains("maven-metadata.xml"));
+          break;
+        }
+
+        // default nexus impl
+        final Pattern pattern = Pattern.compile(patternText);
+        matchers.add(s -> pattern.matcher(s).matches());
       }
-
-      // default nexus impl
-      final Pattern pattern = Pattern.compile(patternText);
-      matchers.add(s -> pattern.matcher(s).matches());
     }
   }
 

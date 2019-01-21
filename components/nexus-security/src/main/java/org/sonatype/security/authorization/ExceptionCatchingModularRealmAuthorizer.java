@@ -12,18 +12,18 @@
  */
 package org.sonatype.security.authorization;
 
-import static java.util.Collections.singletonList;
-
 import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.inject.Named;
 
 import org.apache.shiro.authz.AuthorizationException;
 import org.apache.shiro.authz.Authorizer;
 import org.apache.shiro.authz.ModularRealmAuthorizer;
 import org.apache.shiro.authz.Permission;
+import org.apache.shiro.authz.permission.PermissionResolverAware;
 import org.apache.shiro.authz.permission.RolePermissionResolver;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.subject.PrincipalCollection;
@@ -42,23 +42,36 @@ public class ExceptionCatchingModularRealmAuthorizer
 {
   private static final Logger logger = LoggerFactory.getLogger(ExceptionCatchingModularRealmAuthorizer.class);
 
+  private final PermissionFactory permissionFactory;
+
   public ExceptionCatchingModularRealmAuthorizer(Collection<Realm> realms) {
     super(realms);
+    permissionFactory = new InstanceCachingPermissionFactory(new WildcardPermissionFactory());
   }
 
   @Inject
   public ExceptionCatchingModularRealmAuthorizer(Collection<Realm> realms,
                                                  @Nullable RolePermissionResolver rolePermissionResolver,
-                                                 PermissionFactory permissionFactory)
+                                                 @Named("caching") PermissionFactory permissionFactory)
   {
     super(realms);
+    this.permissionFactory = permissionFactory;
 
     if (null != rolePermissionResolver) {
       setRolePermissionResolver(rolePermissionResolver);
     }
-    // Talend: reuse the optim of our factory
-    setRolePermissionResolver(roleString -> singletonList(permissionFactory.create(roleString)));
-    setPermissionResolver(permissionFactory::create);
+  }
+
+  @Override
+  protected void applyPermissionResolverToRealms() {
+    // super.applyPermissionResolverToRealms(): we just fix the delegate factory we don't set it in "this"
+
+    // Talend: permissionFactory has some optim we want everywhere
+    if (permissionFactory != null) {
+      getRealms().stream()
+                 .filter(PermissionResolverAware.class::isInstance)
+                 .forEach(realm -> PermissionResolverAware.class.cast(realm).setPermissionResolver(permissionFactory::create));
+    }
   }
 
   // Authorization
