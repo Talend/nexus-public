@@ -12,6 +12,7 @@
  */
 package org.sonatype.security.rest.authentication;
 
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 import org.sonatype.security.rest.model.AuthenticationLoginResource;
 import org.sonatype.security.rest.model.AuthenticationLoginResourceResponse;
 
@@ -30,6 +31,10 @@ public abstract class AbstractLoginPlexusResource
     extends AbstractUIPermissionCalculatingPlexusResource
 {
   public static final String RESOURCE_URI = "/authentication/login";
+
+  protected AbstractLoginPlexusResource(final WildcardPermissionFactory permissionFactory) {
+    super(permissionFactory);
+  }
 
   @Override
   public Object getPayloadInstance() {

@@ -18,7 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.inject.Inject;
+
+import org.sonatype.nexus.ApplicationStatusSource;
 import org.sonatype.security.authorization.Privilege;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 import org.sonatype.security.rest.AbstractSecurityPlexusResource;
 import org.sonatype.security.rest.model.AuthenticationClientPermissions;
 import org.sonatype.security.rest.model.ClientPermission;
@@ -47,6 +51,12 @@ public abstract class AbstractUIPermissionCalculatingPlexusResource
   private static final int CREATE = 8;
 
   private static final int ALL = READ | UPDATE | DELETE | CREATE;
+
+  private final WildcardPermissionFactory permissionFactory;
+
+  protected AbstractUIPermissionCalculatingPlexusResource(final WildcardPermissionFactory permissionFactory) {
+    this.permissionFactory = permissionFactory;
+  }
 
   protected AuthenticationClientPermissions getClientPermissionsForCurrentUser(Request request)
       throws ResourceException
@@ -121,10 +131,10 @@ public abstract class AbstractUIPermissionCalculatingPlexusResource
     List<String> permissionNameList = new ArrayList<String>();
 
     for (Entry<String, Integer> priv : privilegeMap.entrySet()) {
-      permissionList.add(new WildcardPermission(priv.getKey() + ":read"));
-      permissionList.add(new WildcardPermission(priv.getKey() + ":create"));
-      permissionList.add(new WildcardPermission(priv.getKey() + ":update"));
-      permissionList.add(new WildcardPermission(priv.getKey() + ":delete"));
+      permissionList.add(permissionFactory.create(priv.getKey() + ":read"));
+      permissionList.add(permissionFactory.create(priv.getKey() + ":create"));
+      permissionList.add(permissionFactory.create(priv.getKey() + ":update"));
+      permissionList.add(permissionFactory.create(priv.getKey() + ":delete"));
       permissionNameList.add(priv.getKey() + ":read");
       permissionNameList.add(priv.getKey() + ":create");
       permissionNameList.add(priv.getKey() + ":update");

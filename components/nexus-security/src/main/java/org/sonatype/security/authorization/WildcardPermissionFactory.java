@@ -12,6 +12,8 @@
  */
 package org.sonatype.security.authorization;
 
+import java.io.Serializable;
+
 import javax.enterprise.inject.Typed;
 import javax.inject.Named;
 import javax.inject.Singleton;
@@ -35,13 +37,60 @@ public class WildcardPermissionFactory
 {
   @Override
   public Permission create(final String permission) {
+    if (!isWildcardPerm(permission)) { // talend: this is slow!
+      return new ConstantPermission(permission);
+    }
     return new WildcardPermission(permission) {
       private final int cachedHash = super.hashCode();
+
+      @Override
+      public boolean implies(final Permission p) {
+        if (ConstantPermission.class.isInstance(p)) {
+          return super.implies(new WildcardPermission(ConstantPermission.class.cast(p).permission));
+        }
+        return super.implies(p);
+      }
 
       @Override
       public int hashCode() {
         return cachedHash;
       }
     };
+  }
+
+  private boolean isWildcardPerm(final String permission) {
+    return permission.contains("*") || permission.contains(",");
+  }
+
+  private static class ConstantPermission implements Permission, Serializable {
+    private final String permission;
+    private final int cachedHash = super.hashCode();
+
+    private ConstantPermission(final String permission) {
+      this.permission = permission == null ? "" : permission;
+    }
+
+    @Override
+    public boolean implies(final Permission p) {
+      if (!ConstantPermission.class.isInstance(p)) {
+        return p.implies(this);
+      }
+      return ConstantPermission.class.cast(p).permission.equals(permission);
+    }
+
+    @Override
+    public int hashCode() {
+      return cachedHash;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      return ConstantPermission.class.isInstance(obj) && permission.equals(ConstantPermission.class.cast(obj).permission);
+    }
+
+    @Override
+    public String toString() {
+      return permission;
+    }
   }
 }

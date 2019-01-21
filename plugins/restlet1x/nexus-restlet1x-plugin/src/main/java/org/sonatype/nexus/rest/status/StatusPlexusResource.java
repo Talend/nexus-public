@@ -32,6 +32,7 @@ import org.sonatype.nexus.rest.model.StatusResourceResponse;
 import org.sonatype.nexus.web.BaseUrlHolder;
 import org.sonatype.plexus.rest.resource.ManagedPlexusResource;
 import org.sonatype.plexus.rest.resource.PathProtectionDescriptor;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 import org.sonatype.security.rest.authentication.AbstractUIPermissionCalculatingPlexusResource;
 import org.sonatype.security.rest.model.AuthenticationClientPermissions;
 
@@ -58,7 +59,9 @@ public class StatusPlexusResource
   private final ApplicationStatusSource applicationStatusSource;
 
   @Inject
-  public StatusPlexusResource(final ApplicationStatusSource applicationStatusSource) {
+  public StatusPlexusResource(final ApplicationStatusSource applicationStatusSource,
+                              final WildcardPermissionFactory permissionFactory) {
+    super(permissionFactory);
     this.applicationStatusSource = applicationStatusSource;
   }
 

@@ -30,6 +30,7 @@ import org.apache.shiro.authz.permission.WildcardPermission;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.subject.PrincipalCollection;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 
 @Singleton
 @Typed(Realm.class)
@@ -47,7 +48,7 @@ public class FakeRealm1
 
     SimpleAuthorizationInfo info = new SimpleAuthorizationInfo(Collections.singleton("role"));
 
-    Permission permission = new WildcardPermission("test:perm");
+    Permission permission = new WildcardPermissionFactory().create("test:perm");
 
     info.setObjectPermissions(Collections.singleton(permission));
 

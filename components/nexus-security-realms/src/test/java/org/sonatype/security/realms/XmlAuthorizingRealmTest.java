@@ -19,6 +19,7 @@ import java.util.Set;
 
 import org.sonatype.configuration.validation.InvalidConfigurationException;
 import org.sonatype.security.AbstractSecurityTestCase;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 import org.sonatype.security.model.CPrivilege;
 import org.sonatype.security.model.CProperty;
 import org.sonatype.security.model.CRole;
@@ -81,17 +82,17 @@ public class XmlAuthorizingRealmTest
     Assert.assertTrue(realm.hasRole(principal, "role"));
 
     // Verify the permission
-    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermission("app:config:read")));
+    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:read")));
     // Verify other method not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:delete")));
 
     // Verify other permission not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:read")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:read")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:delete")));
   }
 
   public void testCaseSensitiveAuthorization()
@@ -104,34 +105,34 @@ public class XmlAuthorizingRealmTest
     Assert.assertTrue(realm.hasRole(principal, "role"));
 
     // Verify the permission
-    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermission("app:config:read")));
+    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:read")));
     // Verify other method not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:delete")));
 
     // Verify other permission not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:read")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:read")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:delete")));
 
     principal = new SimplePrincipalCollection("abcd", realm.getName());
 
     Assert.assertTrue(realm.hasRole(principal, "role"));
 
     // Verify the permission
-    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermission("app:config:read")));
+    Assert.assertTrue(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:read")));
     // Verify other method not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:config:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:config:delete")));
 
     // Verify other permission not allowed
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:read")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:create")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:update")));
-    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermission("app:ui:delete")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:read")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:create")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:update")));
+    Assert.assertFalse(realm.isPermitted(principal, new WildcardPermissionFactory().create("app:ui:delete")));
   }
 
   private void buildTestAuthorizationConfig()

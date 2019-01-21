@@ -29,6 +29,7 @@ import org.apache.shiro.authz.permission.WildcardPermission;
 import org.apache.shiro.realm.AuthorizingRealm;
 import org.apache.shiro.subject.PrincipalCollection;
 import org.codehaus.plexus.util.StringUtils;
+import org.sonatype.security.authorization.WildcardPermissionFactory;
 
 public class PlexusConfiguredRealm
     extends AuthorizingRealm
@@ -59,7 +60,7 @@ public class PlexusConfiguredRealm
     List<Permission> permissions = new ArrayList<Permission>();
 
     for (int ii = 0; ii < privs.length; ii++) {
-      permissions.add(new WildcardPermission(privs[ii].trim()));
+      permissions.add(new WildcardPermissionFactory().create(privs[ii].trim()));
     }
     return permissions;
   }

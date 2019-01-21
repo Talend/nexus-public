@@ -12,6 +12,8 @@
  */
 package org.sonatype.security.authorization;
 
+import static java.util.Collections.singletonList;
+
 import java.util.Collection;
 import java.util.List;
 
@@ -46,13 +48,17 @@ public class ExceptionCatchingModularRealmAuthorizer
 
   @Inject
   public ExceptionCatchingModularRealmAuthorizer(Collection<Realm> realms,
-                                                 @Nullable RolePermissionResolver rolePermissionResolver)
+                                                 @Nullable RolePermissionResolver rolePermissionResolver,
+                                                 PermissionFactory permissionFactory)
   {
     super(realms);
 
     if (null != rolePermissionResolver) {
       setRolePermissionResolver(rolePermissionResolver);
     }
+    // Talend: reuse the optim of our factory
+    setRolePermissionResolver(roleString -> singletonList(permissionFactory.create(roleString)));
+    setPermissionResolver(permissionFactory::create);
   }
 
   // Authorization
