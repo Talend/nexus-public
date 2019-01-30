@@ -15,6 +15,7 @@ package org.sonatype.security.realms;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -105,9 +106,28 @@ public class XmlAuthorizingRealm
     return null;
   }
 
+  @Override
+  protected boolean[] isPermitted(final List<Permission> permissions, final AuthorizationInfo info) {
+    if (permissions != null && !permissions.isEmpty()) {
+      final Collection<Permission> perms = getPermissions(info);
+      int size = permissions.size();
+      final boolean[] result = new boolean[size];
+      int i = 0;
+      for (final Permission p : permissions) {
+        result[i++] = isPermitted(p, perms); // here is the optim
+      }
+      return result;
+    }
+    return new boolean[0];
+  }
+
   @Override // todo: optimize by storing the perm tree (foo:bar:dummy wil lhave a list for foo, then for bar etc)
   protected boolean isPermitted(final Permission permission, final AuthorizationInfo info) {
     Collection<Permission> perms = getPermissions(info);
+    return isPermitted(permission, perms);
+  }
+
+  private boolean isPermitted(final Permission permission, final Collection<Permission> perms) {
     if (perms != null && !perms.isEmpty()) {
       if (WildcardPermissionFactory.ConstantPermission.class.isInstance(permission)) {
         if (perms.contains(permission)) {
