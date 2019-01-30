@@ -121,10 +121,10 @@ public class XmlAuthorizingRealm
     return new boolean[0];
   }
 
-  @Override // todo: optimize by storing the perm tree (foo:bar:dummy wil lhave a list for foo, then for bar etc)
+  @Override
   protected boolean isPermitted(final Permission permission, final AuthorizationInfo info) {
-    Collection<Permission> perms = getPermissions(info);
-    return isPermitted(permission, perms);
+    // todo: optimize by storing the perm tree (foo:bar:dummy will have a list for foo, then for bar etc)
+    return isPermitted(permission, getPermissions(info));
   }
 
   private boolean isPermitted(final Permission permission, final Collection<Permission> perms) {

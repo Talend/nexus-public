@@ -49,10 +49,11 @@ public class WildcardPermissionFactory
   }
 
   public static class HashCachedWildcardPermission extends WildcardPermission {
-    private final int cachedHash = super.hashCode();
+    private final int cachedHash;
 
     private HashCachedWildcardPermission(final String wildcardString) {
       super(wildcardString);
+      this.cachedHash = super.hashCode();
     }
 
     @Override
@@ -71,11 +72,12 @@ public class WildcardPermissionFactory
 
   public static class ConstantPermission implements Permission, Serializable {
     private final String permission;
-    private final int cachedHash = super.hashCode();
+    private final int cachedHash;
     private volatile HashCachedWildcardPermission wildcard;
 
     public ConstantPermission(final String permission) {
       this.permission = permission == null ? "" : permission;
+      this.cachedHash = this.permission.hashCode();
     }
 
     @Override
