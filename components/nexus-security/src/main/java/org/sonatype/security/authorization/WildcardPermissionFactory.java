@@ -82,10 +82,13 @@ public class WildcardPermissionFactory
 
     @Override
     public boolean implies(final Permission p) {
-      if (!ConstantPermission.class.isInstance(p)) {
-        return p.implies(this);
+      if (p == this) {
+        return true;
       }
-      return p == this;
+      if (!ConstantPermission.class.isInstance(p)) {
+        return asWildcard().implies(p);
+      }
+      return ConstantPermission.class.cast(p).permission.equals(permission);
     }
 
     @Override
